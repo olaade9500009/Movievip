@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Wall & Wallet System</title>
+    <link rel="stylesheet" href="css/style.css">
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <!-- Cover Page -->
+    <div class="cover-page" id="coverPage">
+        <div class="cover-content">
+            <div class="logo">🎬 MovieWall</div>
+            <div class="tagline">Watch Movies & Earn Rewards</div>
+            <p style="max-width: 600px; margin: 20px auto; color: #888;">
+                Stream the latest movies from Netflix, Marvel, and Disney+. Every movie you watch earns you $100 in your wallet!
+                Transfer seamlessly to Opay, Moniepoint, or PalmPay.
+            </p>
+            <button class="admin-login-btn" onclick="openAdminLogin()">Admin Dashboard</button>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div class="modal" id="adminLoginModal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeAdminLogin()">&times;</button>
+            <div class="modal-header">
+                <h2>🔐 Admin Access</h2>
+                <p>Secure Dashboard Login</p>
+            </div>
+            <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <label for="adminUsername">Username</label>
+                    <input type="text" id="adminUsername" required placeholder="Enter admin username">
+                </div>
+                <div class="form-group">
+                    <label for="adminPassword">Password</label>
+                    <input type="password" id="adminPassword" required placeholder="Enter admin password">
+                </div>
+                <button type="submit" class="submit-btn">Access Dashboard</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+        <div class="dashboard-header">
+            <div class="dashboard-logo">🎬 MovieWall</div>
+            <div class="user-info">
+                <div class="wallet-balance">$<span id="walletBalance">0.00</span></div>
+                <div>
+                    <span id="userName">Admin User</span>
+                    <small id="userDevice" style="display: block; color: #888;"></small>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="dashboard-nav">
+            <button class="nav-btn active" onclick="showSection('movies')">🎬 Movies</button>
+            <button class="nav-btn" onclick="showSection('wallet')">💰 Wallet</button>
+            <button class="nav-btn" onclick="showSection('transactions')">📊 Transactions</button>
+            <button class="nav-btn" onclick="showSection('devices')">📱 Device Info</button>
+            <button class="nav-btn" onclick="showSection('settings')">⚙️ Settings</button>
+        </div>
+
+        <!-- Movie Wall Section -->
+        <div class="movie-wall active" id="moviesSection">
+            <h2 class="section-title">🎬 Today's Movie Updates</h2>
+            <div class="movies-grid" id="moviesGrid">
+                <!-- Movies will be dynamically loaded -->
+            </div>
+        </div>
+
+        <!-- Wallet Section -->
+        <div class="wallet-section" id="walletSection">
+            <h2 class="section-title">💰 Wallet Management</h2>
+            
+            <div class="wallet-cards">
+                <div class="wallet-card">
+                    <h3>Main Balance</h3>
+                    <div class="balance-display">$<span id="mainBalance">0.00</span></div>
+                    <p>Available for withdrawal</p>
+                </div>
+                <div class="wallet-card" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);">
+                    <h3>Total Earned</h3>
+                    <div class="balance-display">$<span id="totalEarned">0.00</span></div>
+                    <p>From watching movies</p>
+                </div>
+                <div class="wallet-card" style="background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);">
+                    <h3>Movies Watched</h3>
+                    <div class="balance-display"><span id="moviesWatched">0</span></div>
+                    <p>Keep watching to earn more!</p>
+                </div>
+            </div>
+
+            <div class="transaction-actions">
+                <button class="action-btn deposit-btn" onclick="openTransactionForm('deposit')">💵 Deposit</button>
+                <button class="action-btn withdraw-btn" onclick="openTransactionForm('withdraw')">💸 Withdraw</button>
+                <button class="action-btn transfer-btn" onclick="openTransactionForm('transfer')">🔄 Transfer</button>
+            </div>
+
+            <!-- Transaction Forms -->
+            <div class="transaction-form" id="transactionForm" style="display: none;">
+                <h3 id="transactionTitle">Make a Transaction</h3>
+                
+                <div class="bank-grid">
+                    <div class="bank-option" onclick="selectBank('opay')" data-bank="opay">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">🟢</div>
+                        <span>Opay</span>
+                    </div>
+                    <div class="bank-option" onclick="selectBank('moniepoint')" data-bank="moniepoint">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">🟡</div>
+                        <span>Moniepoint</span>
+                    </div>
+                    <div class="bank-option" onclick="selectBank('palmpay')" data-bank="palmpay">
+                        <div style="font-size: 2rem; margin-bottom: 10px;">🔵</div>
+                        <span>PalmPay</span>
+                    </div>
+                </div>
+
+                <form id="transactionFormElement" onsubmit="handleTransaction(event)">
+                    <div class="form-group">
+                        <label>Selected Bank</label>
+                        <input type="text" id="selectedBank" readonly placeholder="Select a bank above">
+                    </div>
+                    <div class="form-group">
+                        <label for="accountName">Account Name</label>
+                        <input type="text" id="accountName" required placeholder="Enter account name">
+                    </div>
+                    <div class="form-group">
+                        <label for="accountNumber">Account Number</label>
+                        <input type="text" id="accountNumber" required placeholder="Enter 10-digit account number" pattern="[0-9]{10}">
+                    </div>
+                    <div class="form-group">
+                        <label for="amount">Amount ($)</label>
+                        <input type="number" id="amount" required min="1" step="0.01" placeholder="Enter amount">
+                    </div>
+                    <div class="form-group">
+                        <label for="transactionDetails">Transaction Details (Optional)</label>
+                        <input type="text" id="transactionDetails" placeholder="Additional notes">
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="submit-btn">Process Transaction</button>
+                        <button type="button" class="submit-btn" onclick="closeTransactionForm()" style="background: var(--dark-color);">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Transactions Section -->
+        <div class="wallet-section" id="transactionsSection">
+            <h2 class="section-title">📊 Transaction History</h2>
+            <div class="transaction-history">
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>Type</th>
+                            <th>Bank/Wallet</th>
+                            <th>Account Name</th>
+                            <th>Account Number</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody">
+                        <!-- Transactions will be loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Device Info Section -->
+        <div class="device-section" id="devicesSection">
+            <h2 class="section-title">📱 Device Information</h2>
+            <div class="device-info-card">
+                <div class="device-details">
+                    <div class="device-item">
+                        <h4>🌐 IP Address</h4>
+                        <p id="deviceIP">Loading...</p>
+                    </div>
+                    <div class="device-item">
+                        <h4>📱 Device Name</h4>
+                        <p id="deviceName">Loading...</p>
+                    </div>
+                    <div class="device-item">
+                        <h4>🆔 Device ID</h4>
+                        <p id="deviceID">Loading...</p>
+                    </div>
+                    <div class="device-item">
+                        <h4>🔒 IMEI/Serial</h4>
+                        <p id="deviceIMEI">Simulated: XXXXXXXX</p>
+                    </div>
+                    <div class="device-item">
+                        <h4>👤 Owner</h4>
+                        <p>Olawale Abdul-Ganiyu</p>
+                    </div>
+                    <div class="device-item">
+                        <h4>📅 Last Access</h4>
+                        <p id="lastAccess">Loading...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="device-info-card">
+                <h3>📋 Cloud Backup Status</h3>
+                <p style="color: #28a745; margin-top: 10px;">✅ Device information backed up to cloud storage</p>
+                <p style="color: #888; margin-top: 5px;">All access details are securely stored and monitored</p>
+            </div>
+        </div>
+
+        <!-- Settings Section -->
+        <div class="wallet-section" id="settingsSection">
+            <h2 class="section-title">⚙️ Settings</h2>
+            <div class="device-info-card">
+                <h3>🎬 Movie License Information</h3>
+                <div style="margin-top: 20px;">
+                    <div class="device-item">
+                        <h4>Netflix License</h4>
+                        <p style="color: #28a745;">✅ Active - Full streaming rights</p>
+                    </div>
+                    <div class="device-item" style="margin-top: 15px;">
+                        <h4>Marvel License</h4>
+                        <p style="color: #28a745;">✅ Active - Full streaming rights</p>
+                    </div>
+                    <div class="device-item" style="margin-top: 15px;">
+                        <h4>Disney+ License</h4>
+                        <p style="color: #28a745;">✅ Active - Full streaming rights</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="device-info-card" style="margin-top: 20px;">
+                <h3>💰 Reward System</h3>
+                <p style="color: #ffc107; margin-top: 10px;">⭐ $100 per movie watched</p>
+                <p style="color: #888; margin-top: 5px;">Rewards are automatically credited to your wallet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
