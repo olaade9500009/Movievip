@@ -1,369 +1,329 @@
-// Movie Wall & Wallet System - Main JavaScript
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
 
-// State Management
-let state = {
-    isLoggedIn: false,
-    isAdmin: false,
-    walletBalance: 0,
-    totalEarned: 0,
-    moviesWatched: 0,
-    transactions: [],
-    currentTransactionType: null,
-    selectedBank: null,
-    deviceInfo: {}
-};
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Movie Data (Simulated for demo - in production, fetch from APIs)
-const moviesData = {
-    netflix: [
-        { id: 1, title: "The Night Agent", poster: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400", platform: "Netflix" },
-        { id: 2, title: "Stranger Things", poster: "https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=400", platform: "Netflix" },
-        { id: 3, title: "The Crown", poster: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400", platform: "Netflix" },
-        { id: 4, title: "Squid Game", poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=400", platform: "Netflix" },
-        { id: 5, title: "Wednesday", poster: "https://images.unsplash.com/photo-1509281373149-e957c6296406?w=400", platform: "Netflix" }
-    ],
-    marvel: [
-        { id: 6, title: "Avengers: Endgame", poster: "https://images.unsplash.com/photo-1635805737707-575885ab0820?w=400", platform: "Marvel" },
-        { id: 7, title: "Spider-Man: No Way Home", poster: "https://images.unsplash.com/photo-1608889825103-eb5ed706fc64?w=400", platform: "Marvel" },
-        { id: 8, title: "Black Panther", poster: "https://images.unsplash.com/photo-1559583109-3e7968136c99?w=400", platform: "Marvel" },
-        { id: 9, title: "Iron Man", poster: "https://images.unsplash.com/photo-1560169897-fc0cdbdfa4d5?w=400", platform: "Marvel" },
-        { id: 10, title: "Thor: Ragnarok", poster: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=400", platform: "Marvel" }
-    ],
-    disney: [
-        { id: 11, title: "Encanto", poster: "https://images.unsplash.com/photo-1534809027769-b00d750a6bac?w=400", platform: "Disney+" },
-        { id: 12, title: "Moana", poster: "https://images.unsplash.com/photo-1516589091380-5d8e87df6999?w=400", platform: "Disney+" },
-        { id: 13, title: "Coco", poster: "https://images.unsplash.com/photo-1518834107812-67b0b7c58434?w=400", platform: "Disney+" },
-        { id: 14, title: "Frozen", poster: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=400", platform: "Disney+" },
-        { id: 15, title: "The Lion King", poster: "https://images.unsplash.com/photo-1534188753412-3e26d0d618d6?w=400", platform: "Disney+" }
-    ]
-};
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static('public'));
 
-// Initialize App
-document.addEventListener('DOMContentLoaded', function() {
-    loadState();
-    initializeDeviceTracking();
-    if (state.isLoggedIn) {
-        showDashboard();
+// Database simulation using JSON files
+const DB_DIR = path.join(__dirname, '../database');
+const DATA_FILE = path.join(DB_DIR, 'data.json');
+
+// Initialize database
+function initializeDatabase() {
+    if (!fs.existsSync(DB_DIR)) {
+        fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+    
+    if (!fs.existsSync(DATA_FILE)) {
+        const initialData = {
+            users: [],
+            transactions: [],
+            deviceTracking: [],
+            adminCredentials: {
+                username: 'admin',
+                password: 'admin123' // In production, this should be hashed
+            }
+        };
+        fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2));
+    }
+}
+
+// Read database
+function readDatabase() {
+    const data = fs.readFileSync(DATA_FILE, 'utf8');
+    return JSON.parse(data);
+}
+
+// Write to database
+function writeDatabase(data) {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+// API Routes
+
+// Admin authentication
+app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body;
+    const db = readDatabase();
+    
+    if (username === db.adminCredentials.username && password === db.adminCredentials.password) {
+        res.json({ 
+            success: true, 
+            message: 'Login successful',
+            token: 'admin-token-' + Date.now()
+        });
+    } else {
+        res.status(401).json({ 
+            success: false, 
+            message: 'Invalid credentials' 
+        });
     }
 });
 
-// Admin Login Functions
-function openAdminLogin() {
-    document.getElementById('adminLoginModal').classList.add('active');
-}
-
-function closeAdminLogin() {
-    document.getElementById('adminLoginModal').classList.remove('active');
-}
-
-function handleAdminLogin(event) {
-    event.preventDefault();
-    const username = document.getElementById('adminUsername').value;
-    const password = document.getElementById('adminPassword').value;
-
-    // Simulated admin authentication (in production, use proper backend)
-    if (username === 'admin' && password === 'admin123') {
-        state.isLoggedIn = true;
-        state.isAdmin = true;
-        saveState();
-        closeAdminLogin();
-        showDashboard();
-        showNotification('Welcome back, Admin!', 'success');
-    } else {
-        showNotification('Invalid credentials. Try admin/admin123', 'error');
-    }
-}
-
-// Dashboard Functions
-function showDashboard() {
-    document.getElementById('coverPage').style.display = 'none';
-    document.getElementById('dashboard').classList.add('active');
-    updateWalletDisplay();
-    loadMovies();
-    loadTransactions();
-    updateDeviceInfo();
-}
-
-function logout() {
-    state.isLoggedIn = false;
-    state.isAdmin = false;
-    saveState();
-    document.getElementById('dashboard').classList.remove('active');
-    document.getElementById('coverPage').style.display = 'flex';
-    showNotification('Logged out successfully', 'info');
-}
-
-// Navigation Functions
-function showSection(section) {
-    // Update nav buttons
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-
-    // Show corresponding section
-    document.querySelectorAll('.movie-wall, .wallet-section, .device-section').forEach(s => s.classList.remove('active'));
-    
-    switch(section) {
-        case 'movies':
-            document.getElementById('moviesSection').classList.add('active');
-            break;
-        case 'wallet':
-            document.getElementById('walletSection').classList.add('active');
-            break;
-        case 'transactions':
-            document.getElementById('transactionsSection').classList.add('active');
-            break;
-        case 'devices':
-            document.getElementById('devicesSection').classList.add('active');
-            break;
-        case 'settings':
-            document.getElementById('settingsSection').classList.add('active');
-            break;
-    }
-}
-
-// Movie Functions
-function loadMovies() {
-    const moviesGrid = document.getElementById('moviesGrid');
-    moviesGrid.innerHTML = '';
-    
-    // Combine all movie sources
-    const allMovies = [...moviesData.netflix, ...moviesData.marvel, ...moviesData.disney];
-    
-    // Shuffle for variety
-    const shuffledMovies = allMovies.sort(() => Math.random() - 0.5);
-    
-    shuffledMovies.forEach(movie => {
-        const movieCard = createMovieCard(movie);
-        moviesGrid.appendChild(movieCard);
-    });
-}
-
-function createMovieCard(movie) {
-    const card = document.createElement('div');
-    card.className = 'movie-card';
-    card.innerHTML = `
-        <div class="reward-badge">+$100</div>
-        <img src="${movie.poster}" alt="${movie.title}" class="movie-poster" onerror="this.src='https://via.placeholder.com/400x600?text=Movie'">
-        <div class="movie-info">
-            <div class="movie-title">${movie.title}</div>
-            <div class="movie-platform">${movie.platform}</div>
-            <button class="watch-btn" onclick="watchMovie(${movie.id})">🎬 Watch Now</button>
-        </div>
-    `;
-    return card;
-}
-
-function watchMovie(movieId) {
-    // Simulate movie watching and reward
-    state.walletBalance += 100;
-    state.totalEarned += 100;
-    state.moviesWatched++;
-    
-    saveState();
-    updateWalletDisplay();
-    
-    showNotification('🎉 Movie watched! $100 added to your wallet!', 'success');
-    
-    // Log earning as transaction
-    addTransaction({
-        type: 'earning',
-        bank: 'Movie Reward',
-        accountName: 'System',
-        accountNumber: 'N/A',
-        amount: 100,
-        status: 'completed',
-        details: 'Reward for watching movie',
-        timestamp: new Date().toISOString()
-    });
-}
-
-// Wallet Functions
-function updateWalletDisplay() {
-    document.getElementById('walletBalance').textContent = state.walletBalance.toFixed(2);
-    document.getElementById('mainBalance').textContent = state.walletBalance.toFixed(2);
-    document.getElementById('totalEarned').textContent = state.totalEarned.toFixed(2);
-    document.getElementById('moviesWatched').textContent = state.moviesWatched;
-}
-
-function openTransactionForm(type) {
-    state.currentTransactionType = type;
-    document.getElementById('transactionForm').style.display = 'block';
-    
-    const titles = {
-        'deposit': '💵 Deposit to Wallet',
-        'withdraw': '💸 Withdraw from Wallet',
-        'transfer': '🔄 Transfer to Bank'
+// User management
+app.post('/api/users', (req, res) => {
+    const db = readDatabase();
+    const newUser = {
+        id: Date.now(),
+        ...req.body,
+        createdAt: new Date().toISOString()
     };
-    document.getElementById('transactionTitle').textContent = titles[type];
-}
+    
+    db.users.push(newUser);
+    writeDatabase(db);
+    
+    res.json({ success: true, user: newUser });
+});
 
-function closeTransactionForm() {
-    document.getElementById('transactionForm').style.display = 'none';
-    document.getElementById('transactionFormElement').reset();
-    document.querySelectorAll('.bank-option').forEach(opt => opt.classList.remove('selected'));
-    state.selectedBank = null;
-}
+app.get('/api/users', (req, res) => {
+    const db = readDatabase();
+    res.json(db.users);
+});
 
-function selectBank(bank) {
-    state.selectedBank = bank;
-    document.querySelectorAll('.bank-option').forEach(opt => opt.classList.remove('selected'));
-    document.querySelector(`[data-bank="${bank}"]`).classList.add('selected');
-    document.getElementById('selectedBank').value = bank.toUpperCase();
-}
+// Transaction management
+app.post('/api/transactions', (req, res) => {
+    const db = readDatabase();
+    const newTransaction = {
+        id: Date.now(),
+        ...req.body,
+        createdAt: new Date().toISOString()
+    };
+    
+    db.transactions.push(newTransaction);
+    writeDatabase(db);
+    
+    res.json({ success: true, transaction: newTransaction });
+});
 
-function handleTransaction(event) {
-    event.preventDefault();
-    
-    if (!state.selectedBank) {
-        showNotification('Please select a bank', 'error');
-        return;
-    }
-    
-    const accountName = document.getElementById('accountName').value;
-    const accountNumber = document.getElementById('accountNumber').value;
-    const amount = parseFloat(document.getElementById('amount').value);
-    const details = document.getElementById('transactionDetails').value;
-    
-    // Validate transaction
-    if (state.currentTransactionType === 'withdraw' && amount > state.walletBalance) {
-        showNotification('Insufficient wallet balance', 'error');
-        return;
-    }
-    
-    // Process transaction
-    let transaction = {
-        type: state.currentTransactionType,
-        bank: state.selectedBank.toUpperCase(),
-        accountName: accountName,
-        accountNumber: accountNumber,
-        amount: amount,
-        status: 'completed',
-        details: details || 'No additional details',
+app.get('/api/transactions', (req, res) => {
+    const db = readDatabase();
+    res.json(db.transactions);
+});
+
+// Device tracking
+app.post('/api/devices/track', (req, res) => {
+    const db = readDatabase();
+    const deviceInfo = {
+        id: Date.now(),
+        ...req.body,
         timestamp: new Date().toISOString()
     };
     
-    // Update wallet balance
-    switch(state.currentTransactionType) {
-        case 'deposit':
-            state.walletBalance += amount;
-            break;
-        case 'withdraw':
-            state.walletBalance -= amount;
-            break;
-        case 'transfer':
-            state.walletBalance -= amount;
-            break;
+    db.deviceTracking.push(deviceInfo);
+    writeDatabase(db);
+    
+    res.json({ success: true, message: 'Device tracked successfully' });
+});
+
+app.get('/api/devices', (req, res) => {
+    const db = readDatabase();
+    res.json(db.deviceTracking);
+});
+
+// Movie data endpoints (simulated)
+app.get('/api/movies', (req, res) => {
+    const movies = {
+        netflix: [
+            { id: 1, title: "The Night Agent", platform: "Netflix", reward: 100 },
+            { id: 2, title: "Stranger Things", platform: "Netflix", reward: 100 },
+            { id: 3, title: "The Crown", platform: "Netflix", reward: 100 },
+            { id: 4, title: "Squid Game", platform: "Netflix", reward: 100 },
+            { id: 5, title: "Wednesday", platform: "Netflix", reward: 100 }
+        ],
+        marvel: [
+            { id: 6, title: "Avengers: Endgame", platform: "Marvel", reward: 100 },
+            { id: 7, title: "Spider-Man: No Way Home", platform: "Marvel", reward: 100 },
+            { id: 8, title: "Black Panther", platform: "Marvel", reward: 100 },
+            { id: 9, title: "Iron Man", platform: "Marvel", reward: 100 },
+            { id: 10, title: "Thor: Ragnarok", platform: "Marvel", reward: 100 }
+        ],
+        disney: [
+            { id: 11, title: "Encanto", platform: "Disney+", reward: 100 },
+            { id: 12, title: "Moana", platform: "Disney+", reward: 100 },
+            { id: 13, title: "Coco", platform: "Disney+", reward: 100 },
+            { id: 14, title: "Frozen", platform: "Disney+", reward: 100 },
+            { id: 15, title: "The Lion King", platform: "Disney+", reward: 100 }
+        ]
+    };
+    
+    res.json(movies);
+});
+
+// Wallet operations
+app.post('/api/wallet/deposit', (req, res) => {
+    const { userId, amount, bankDetails } = req.body;
+    const db = readDatabase();
+    
+    // Find user and update balance
+    const userIndex = db.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        return res.status(404).json({ success: false, message: 'User not found' });
     }
     
-    addTransaction(transaction);
-    saveState();
-    updateWalletDisplay();
-    closeTransactionForm();
+    db.users[userIndex].walletBalance = (db.users[userIndex].walletBalance || 0) + amount;
     
-    showNotification(`${state.currentTransactionType.toUpperCase()} of $${amount.toFixed(2)} successful!`, 'success');
-}
-
-// Transaction Functions
-function addTransaction(transaction) {
-    state.transactions.unshift(transaction);
-    loadTransactions();
-}
-
-function loadTransactions() {
-    const tbody = document.getElementById('transactionTableBody');
-    tbody.innerHTML = '';
-    
-    state.transactions.forEach(tx => {
-        const row = document.createElement('tr');
-        const date = new Date(tx.timestamp);
-        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-        
-        const statusClass = tx.status === 'completed' ? 'status-completed' : 
-                           tx.status === 'pending' ? 'status-pending' : 'status-failed';
-        
-        row.innerHTML = `
-            <td>${formattedDate}</td>
-            <td>${tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}</td>
-            <td>${tx.bank}</td>
-            <td>${tx.accountName}</td>
-            <td>${tx.accountNumber}</td>
-            <td>$${tx.amount.toFixed(2)}</td>
-            <td class="${statusClass}">${tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}</td>
-            <td>${tx.details}</td>
-        `;
-        tbody.appendChild(row);
-    });
-}
-
-// Device Tracking Functions
-function initializeDeviceTracking() {
-    // Simulate device information collection
-    state.deviceInfo = {
-        ip: generateRandomIP(),
-        deviceName: getDeviceName(),
-        deviceID: generateDeviceID(),
-        imei: 'SIM-' + generateRandomIMEI(),
-        lastAccess: new Date().toISOString(),
-        owner: 'Olawale Abdul-Ganiyu'
+    // Create transaction record
+    const transaction = {
+        id: Date.now(),
+        userId,
+        type: 'deposit',
+        amount,
+        bankDetails,
+        status: 'completed',
+        createdAt: new Date().toISOString()
     };
-}
-
-function updateDeviceInfo() {
-    document.getElementById('deviceIP').textContent = state.deviceInfo.ip;
-    document.getElementById('deviceName').textContent = state.deviceInfo.deviceName;
-    document.getElementById('deviceID').textContent = state.deviceInfo.deviceID;
-    document.getElementById('deviceIMEI').textContent = state.deviceInfo.imei;
-    document.getElementById('lastAccess').textContent = new Date(state.deviceInfo.lastAccess).toLocaleString();
-}
-
-function getDeviceName() {
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('Windows')) return 'Windows Device';
-    if (userAgent.includes('Mac')) return 'Mac Device';
-    if (userAgent.includes('Android')) return 'Android Device';
-    if (userAgent.includes('iOS')) return 'iOS Device';
-    return 'Unknown Device';
-}
-
-function generateRandomIP() {
-    return `${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`;
-}
-
-function generateDeviceID() {
-    return 'DEV-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-}
-
-function generateRandomIMEI() {
-    return Math.random().toString().substr(2, 15);
-}
-
-// Utility Functions
-function showNotification(message, type) {
-    const container = document.getElementById('notificationContainer');
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    container.appendChild(notification);
     
+    db.transactions.push(transaction);
+    writeDatabase(db);
+    
+    res.json({ 
+        success: true, 
+        newBalance: db.users[userIndex].walletBalance,
+        transaction 
+    });
+});
+
+app.post('/api/wallet/withdraw', (req, res) => {
+    const { userId, amount, bankDetails } = req.body;
+    const db = readDatabase();
+    
+    // Find user and check balance
+    const userIndex = db.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    if (db.users[userIndex].walletBalance < amount) {
+        return res.status(400).json({ success: false, message: 'Insufficient balance' });
+    }
+    
+    db.users[userIndex].walletBalance -= amount;
+    
+    // Create transaction record
+    const transaction = {
+        id: Date.now(),
+        userId,
+        type: 'withdraw',
+        amount,
+        bankDetails,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+    };
+    
+    db.transactions.push(transaction);
+    writeDatabase(db);
+    
+    res.json({ 
+        success: true, 
+        newBalance: db.users[userIndex].walletBalance,
+        transaction 
+    });
+});
+
+// Bank transfer simulation
+app.post('/api/bank/transfer', (req, res) => {
+    const { amount, fromBank, toAccount, toBank, accountName } = req.body;
+    
+    // Simulate bank transfer processing
+    const simulatedTransfer = {
+        id: Date.now(),
+        amount,
+        fromBank,
+        toAccount,
+        toBank,
+        accountName,
+        status: 'processing',
+        reference: 'REF-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        createdAt: new Date().toISOString()
+    };
+    
+    // Simulate processing delay
     setTimeout(() => {
-        notification.remove();
-    }, 3000);
-}
+        const db = readDatabase();
+        simulatedTransfer.status = 'completed';
+        db.transactions.push(simulatedTransfer);
+        writeDatabase(db);
+    }, 2000);
+    
+    res.json({ 
+        success: true, 
+        message: 'Transfer initiated successfully',
+        transfer: simulatedTransfer 
+    });
+});
 
-function saveState() {
-    localStorage.setItem('movieWallState', JSON.stringify(state));
-}
-
-function loadState() {
-    const savedState = localStorage.getItem('movieWallState');
-    if (savedState) {
-        state = { ...state, ...JSON.parse(savedState) };
+// Movie watching reward
+app.post('/api/movies/watch', (req, res) => {
+    const { userId, movieId } = req.body;
+    const db = readDatabase();
+    
+    // Find user and credit reward
+    const userIndex = db.users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        return res.status(404).json({ success: false, message: 'User not found' });
     }
-}
+    
+    const reward = 100;
+    db.users[userIndex].walletBalance = (db.users[userIndex].walletBalance || 0) + reward;
+    db.users[userIndex].moviesWatched = (db.users[userIndex].moviesWatched || 0) + 1;
+    db.users[userIndex].totalEarned = (db.users[userIndex].totalEarned || 0) + reward;
+    
+    // Create earning transaction
+    const transaction = {
+        id: Date.now(),
+        userId,
+        type: 'earning',
+        amount: reward,
+        source: 'Movie Reward',
+        movieId,
+        status: 'completed',
+        createdAt: new Date().toISOString()
+    };
+    
+    db.transactions.push(transaction);
+    writeDatabase(db);
+    
+    res.json({ 
+        success: true, 
+        reward,
+        newBalance: db.users[userIndex].walletBalance,
+        moviesWatched: db.users[userIndex].moviesWatched,
+        transaction 
+    });
+});
 
-// Simulate daily movie updates (in production, this would fetch from APIs)
-setInterval(() => {
-    if (state.isLoggedIn) {
-        loadMovies();
-    }
-}, 60000 * 60); // Update every hour
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        version: '1.0.0'
+    });
+});
+
+// Serve the main HTML file
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ error: 'Something went wrong!' });
+});
+
+// Initialize and start server
+initializeDatabase();
+
+app.listen(PORT, () => {
+    console.log(`🚀 Movie Wall & Wallet System running on port ${PORT}`);
+    console.log(`📱 Access the application at http://localhost:${PORT}`);
+    console.log(`🔐 Admin credentials: admin / admin123`);
+});
